@@ -2,8 +2,9 @@ import { createContext, useContext, useEffect, useRef, useState, useCallback } f
 
 const GameContext = createContext(null);
 
-const WS_URL = `ws://${window.location.hostname}:3001`;
-const API_URL = `http://${window.location.hostname}:3001`;
+const isLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1' || /^192\.168\./.test(window.location.hostname);
+const WS_URL = isLocal ? `ws://${window.location.hostname}:3001` : `wss://${window.location.host}`;
+const API_URL = isLocal ? `http://${window.location.hostname}:3001` : '';
 
 export function GameProvider({ children }) {
   const [state, setState] = useState(null);

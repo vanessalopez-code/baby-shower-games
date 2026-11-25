@@ -2,10 +2,21 @@ import express from 'express';
 import { WebSocketServer } from 'ws';
 import cors from 'cors';
 import { createServer } from 'http';
+import { fileURLToPath } from 'url';
+import { dirname, join } from 'path';
+import { existsSync } from 'fs';
+
+const __dirname = dirname(fileURLToPath(import.meta.url));
 
 const app = express();
 app.use(cors());
 app.use(express.json({ limit: '10mb' }));
+
+// Serve built frontend in production
+const distPath = join(__dirname, '../dist');
+if (existsSync(distPath)) {
+  app.use(express.static(distPath));
+}
 
 const server = createServer(app);
 const wss = new WebSocketServer({ server });
@@ -233,7 +244,14 @@ wss.on('connection', ws => {
   });
 });
 
-const PORT = 3001;
+// SPA fallback — must be after all API routes
+if (existsSync(distPath)) {
+  app.get('*', (req, res) => {
+    res.sendFile(join(distPath, 'index.html'));
+  });
+}
+
+const PORT = process.env.PORT || 3001;
 server.listen(PORT, '0.0.0.0', () => {
   console.log(`Baby Shower Games server running on port ${PORT}`);
 });

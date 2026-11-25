@@ -257,7 +257,7 @@ wss.on('connection', ws => {
 
 // SPA fallback — must be after all API routes
 if (existsSync(distPath)) {
-  app.get('*', (req, res) => {
+  app.use((req, res) => {
     res.sendFile(join(distPath, 'index.html'));
   });
 }

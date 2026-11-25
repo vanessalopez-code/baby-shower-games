@@ -1,0 +1,12 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "baby-shower-games",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["run", "start"],
+      "port": 5173,
+      "cwd": "/Users/vanessalopez/Documents/AI Projects/baby-shower-games"
+    }
+  ]
+}

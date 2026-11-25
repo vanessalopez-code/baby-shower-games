@@ -12,6 +12,17 @@ const app = express();
 app.use(cors());
 app.use(express.json({ limit: '10mb' }));
 
+const ADMIN_SECRET = process.env.ADMIN_SECRET || 'changeme-set-env-var';
+
+function requireAdmin(req, res, next) {
+  if (req.headers['x-admin-secret'] !== ADMIN_SECRET) {
+    return res.status(401).json({ error: 'Unauthorized' });
+  }
+  next();
+}
+
+app.use('/admin', requireAdmin);
+
 // Serve built frontend in production
 const distPath = join(__dirname, '../dist');
 if (existsSync(distPath)) {

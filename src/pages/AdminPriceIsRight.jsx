@@ -18,13 +18,15 @@ export default function AdminPriceIsRight() {
   const [dragOverIndex, setDragOverIndex] = useState(null);
 
   const fetchItems = useCallback(async () => {
-    const res = await fetch(`${API_URL}/admin/items`);
+    const secret = sessionStorage.getItem('adminSecret') || '';
+    const res = await fetch(`${API_URL}/admin/items`, { headers: { 'x-admin-secret': secret } });
     const data = await res.json();
     setItems(data);
   }, [API_URL]);
 
   const fetchSettings = useCallback(async () => {
-    const res = await fetch(`${API_URL}/admin/settings`);
+    const secret = sessionStorage.getItem('adminSecret') || '';
+    const res = await fetch(`${API_URL}/admin/settings`, { headers: { 'x-admin-secret': secret } });
     if (!res.ok) return;
     const data = await res.json();
     setTimerMode(data.timerMode || 'auto');

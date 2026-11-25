@@ -1,11 +1,14 @@
 import { useState } from 'react';
 import { useNavigate, Navigate } from 'react-router-dom';
 
-const ADMIN_PASSWORD = 'Bob';
+const API_BASE = /localhost|127\.0\.0\.1|192\.168\./.test(window.location.hostname)
+  ? `http://${window.location.hostname}:3001`
+  : '';
 
 export default function Admin() {
   const [input, setInput] = useState('');
   const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
   const [authed, setAuthed] = useState(() => sessionStorage.getItem('adminAuthed') === 'yes');
   const navigate = useNavigate();
 
@@ -13,14 +16,26 @@ export default function Admin() {
     return <Navigate to="/admin/price-is-right" replace />;
   }
 
-  const handleLogin = e => {
+  const handleLogin = async e => {
     e.preventDefault();
-    if (input === ADMIN_PASSWORD) {
-      sessionStorage.setItem('adminAuthed', 'yes');
-      setAuthed(true);
-    } else {
-      setError('Incorrect password.');
-      setInput('');
+    setLoading(true);
+    setError('');
+    try {
+      const res = await fetch(`${API_BASE}/admin/settings`, {
+        headers: { 'x-admin-secret': input },
+      });
+      if (res.ok) {
+        sessionStorage.setItem('adminAuthed', 'yes');
+        sessionStorage.setItem('adminSecret', input);
+        setAuthed(true);
+      } else {
+        setError('Incorrect password.');
+        setInput('');
+      }
+    } catch {
+      setError('Could not reach server. Is it running?');
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -43,9 +58,10 @@ export default function Admin() {
           {error && <p className="text-red-400 text-sm mb-3">{error}</p>}
           <button
             type="submit"
-            className="w-full bg-sage hover:bg-sage-mid text-white font-semibold py-3 rounded-full text-base transition"
+            disabled={loading}
+            className="w-full bg-sage hover:bg-sage-mid text-white font-semibold py-3 rounded-full text-base transition disabled:opacity-60"
           >
-            Enter
+            {loading ? 'Checking…' : 'Enter'}
           </button>
         </form>
         <button onClick={() => navigate('/')} className="mt-4 w-full text-sm text-wood-light hover:text-wood-mid transition">

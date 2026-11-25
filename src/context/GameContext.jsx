@@ -54,9 +54,10 @@ export function GameProvider({ children }) {
   }, [playerName]);
 
   const api = useCallback(async (path, body) => {
+    const secret = sessionStorage.getItem('adminSecret') || '';
     const res = await fetch(`${API_URL}${path}`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', 'x-admin-secret': secret },
       body: JSON.stringify(body),
     });
     try { return await res.json(); } catch { return { ok: res.ok, status: res.status }; }

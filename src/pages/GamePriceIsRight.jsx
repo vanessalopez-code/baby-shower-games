@@ -258,19 +258,59 @@ export default function GamePriceIsRight() {
     );
   }
 
-  // Leaderboard
+  // Leaderboard (auto-shown after each round)
   if (phase === 'leaderboard') {
+    const lastResult = state.itemResults?.[state.itemResults.length - 1];
+    const sortedByTotal = [...state.participants].sort((a, b) => b.totalScore - a.totalScore);
+    const totalRank = Object.fromEntries(sortedByTotal.map((p, i) => [p.name, i]));
+    const trophies = ['🥇', '🥈', '🥉'];
+    const totalScoreMap = Object.fromEntries(state.participants.map(p => [p.name, p.totalScore]));
+
     return (
       <div className="min-h-screen bg-canvas flex flex-col">
         <HomeBar />
         <div className="bg-sage px-4 py-6 text-center">
           <h1 className="text-xl font-semibold text-white">Leaderboard</h1>
-          <p className="text-sage-light text-sm mt-1">After {state.currentItemIndex + 1} of {state.totalItems} items</p>
+          <p className="text-sage-light text-sm mt-1">After item {state.currentItemIndex + 1} of {state.totalItems}</p>
         </div>
         <div className="flex flex-col items-center px-4 py-6 -mt-3">
-          <div className="w-full max-w-md">
+          <div className="w-full max-w-md space-y-4">
+
+            {/* Last item round scores */}
+            {lastResult?.guesses && (
+              <div className="bg-white rounded-2xl shadow p-5 border border-sage-light/30">
+                <div className="flex items-center justify-between mb-3">
+                  <h3 className="text-xs font-semibold text-wood-mid uppercase tracking-wide">Last Item — {lastResult.itemName}</h3>
+                  <span className="text-sm font-bold text-sage">${lastResult.price.toFixed(2)}</span>
+                </div>
+                <div className="space-y-2">
+                  {lastResult.guesses.map((g, i) => {
+                    const trophy = trophies[totalRank[g.name]];
+                    const totalPts = totalScoreMap[g.name] ?? 0;
+                    return (
+                      <div key={g.name} className={`flex items-center gap-2 p-2 rounded-xl ${g.name === playerName ? 'bg-skyblue-pale' : ''}`}>
+                        <span className="text-sage-mid text-xs w-4 shrink-0">{i + 1}</span>
+                        <span className="text-base w-5 shrink-0">{trophy || ''}</span>
+                        <span className="flex-1 font-semibold text-wood text-sm min-w-0 truncate">
+                          {g.name}{g.name === playerName ? ' (you)' : ''}
+                        </span>
+                        <span className="text-xs text-sage-mid shrink-0">${g.guess}</span>
+                        <div className="text-right shrink-0">
+                          <div className={`font-bold text-sm ${g.score === 100 ? 'text-sage' : g.score >= 60 ? 'text-wood-mid' : 'text-red-400'}`}>
+                            +{g.score} pts
+                          </div>
+                          <div className="text-xs text-sage-mid">{totalPts} total</div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
+            {/* Overall standings */}
             <Leaderboard participants={state.participants} playerName={playerName} />
-            <p className="text-center text-sm text-sage-mid mt-4">Waiting for the next round…</p>
+            <p className="text-center text-sm text-sage-mid">Waiting for the next round…</p>
           </div>
         </div>
       </div>

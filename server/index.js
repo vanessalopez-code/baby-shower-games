@@ -197,7 +197,7 @@ app.post('/admin/start-round', (req, res) => {
 
 function endRound(itemId) {
   const result = calculateScores(itemId);
-  gameState.phase = 'results';
+  gameState.phase = 'leaderboard';
   broadcast({ ...publicState(), type: 'STATE', roundResult: result });
 }
 

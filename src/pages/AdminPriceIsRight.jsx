@@ -261,14 +261,9 @@ export default function AdminPriceIsRight() {
                       ⏹ Close Guessing
                     </button>
                   )}
-                  {phase === 'results' && currentItemIndex + 1 < items.length && (
+                  {(phase === 'results' || phase === 'leaderboard') && currentItemIndex + 1 < items.length && (
                     <button onClick={handleNextRound} className="bg-sage-pale hover:bg-sage-light text-sage border border-sage-light px-4 py-2 rounded-xl font-semibold text-sm transition">
                       ▶ Next Item
-                    </button>
-                  )}
-                  {phase === 'results' && (
-                    <button onClick={handleShowLeaderboard} className="bg-skyblue-pale hover:bg-skyblue-light/40 text-skyblue border border-skyblue-light px-4 py-2 rounded-xl font-semibold text-sm transition">
-                      🏆 Show Leaderboard
                     </button>
                   )}
                   <button onClick={handleReset} className="bg-red-50 hover:bg-red-100 text-red-400 border border-red-200 px-4 py-2 rounded-xl font-semibold text-sm transition">

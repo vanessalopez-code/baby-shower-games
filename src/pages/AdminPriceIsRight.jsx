@@ -13,6 +13,7 @@ export default function AdminPriceIsRight() {
   const [msg, setMsg] = useState('');
   const [timerMode, setTimerMode] = useState(() => localStorage.getItem('bs_timerMode') || 'auto');
   const [globalMinutes, setGlobalMinutes] = useState(() => Number(localStorage.getItem('bs_globalMinutes')) || 1);
+  const [maxPrice, setMaxPrice] = useState(() => Number(localStorage.getItem('bs_maxPrice')) || 500);
   const [settingsSaved, setSettingsSaved] = useState(false);
   const [dragIndex, setDragIndex] = useState(null);
   const [dragOverIndex, setDragOverIndex] = useState(null);
@@ -31,6 +32,7 @@ export default function AdminPriceIsRight() {
     const data = await res.json();
     setTimerMode(data.timerMode || 'auto');
     setGlobalMinutes(data.globalTimer ? Math.max(1, Math.round(data.globalTimer / 60)) : 1);
+    if (data.maxPrice) setMaxPrice(data.maxPrice);
   }, [API_URL]);
 
   useEffect(() => {
@@ -46,10 +48,12 @@ export default function AdminPriceIsRight() {
   const saveSettings = async () => {
     localStorage.setItem('bs_timerMode', timerMode);
     localStorage.setItem('bs_globalMinutes', String(globalMinutes));
+    localStorage.setItem('bs_maxPrice', String(maxPrice));
     try {
       await api('/admin/settings', {
         timerMode,
         globalTimer: timerMode === 'auto' ? globalMinutes * 60 : null,
+        maxPrice,
       });
     } catch {}
   };
@@ -218,6 +222,21 @@ export default function AdminPriceIsRight() {
               ) : (
                 <p className="mt-3 text-sm text-sage-mid">You'll click <strong className="text-wood">Close Guessing</strong> manually for each item.</p>
               )}
+            </div>
+
+            {/* Max price */}
+            <div>
+              <label className="block text-xs font-semibold text-wood-mid uppercase tracking-wide mb-3">Max Guess Price</label>
+              <div className="flex items-center gap-3">
+                <span className="text-sm text-wood font-semibold">$</span>
+                <input
+                  type="number" min="1"
+                  value={maxPrice}
+                  onChange={e => setMaxPrice(Math.max(1, Number(e.target.value)))}
+                  className="w-28 bg-sage-pale border border-sage-light rounded-xl px-3 py-2 text-wood text-center font-semibold focus:outline-none focus:ring-2 focus:ring-sage-light"
+                />
+                <span className="text-xs text-sage-mid">Players can guess $0 – ${maxPrice}</span>
+              </div>
             </div>
 
             {/* Round controls (shown while game is running) */}

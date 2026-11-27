@@ -89,6 +89,7 @@ export default function GamePriceIsRight() {
   // Active round
   if (phase === 'active' && state.currentItem) {
     const item = state.currentItem;
+    const maxPrice = state.gameSettings?.maxPrice || 500;
     const timerPct = timeLeft !== null ? (timeLeft / item.timer) * 100 : 100;
     const urgent = timeLeft !== null && timeLeft <= 10;
 
@@ -130,20 +131,20 @@ export default function GamePriceIsRight() {
                   <span className="text-4xl font-semibold text-wood">${guess}</span>
                 </div>
                 <input
-                  type="range" min="0" max="500" step="1"
+                  type="range" min="0" max={maxPrice} step="1"
                   value={guess}
                   onChange={e => setGuess(Number(e.target.value))}
                   className="w-full mb-1 h-2 cursor-pointer accent-sage"
                 />
                 <div className="flex justify-between text-xs text-sage-mid mb-4">
-                  <span>$0</span><span>$250</span><span>$500</span>
+                  <span>$0</span><span>${Math.round(maxPrice / 2)}</span><span>${maxPrice}</span>
                 </div>
                 <div className="flex items-center gap-3 mb-4">
                   <label className="text-sm text-sage-mid whitespace-nowrap">Or type:</label>
                   <input
-                    type="number" min="0" max="500"
+                    type="number" min="0" max={maxPrice}
                     value={guess}
-                    onChange={e => setGuess(Math.min(500, Math.max(0, Number(e.target.value))))}
+                    onChange={e => setGuess(Math.min(maxPrice, Math.max(0, Number(e.target.value))))}
                     className="bg-sage-pale border border-sage-light rounded-xl px-3 py-2 w-28 text-center text-lg font-semibold text-wood focus:outline-none focus:ring-2 focus:ring-sage-light"
                   />
                 </div>

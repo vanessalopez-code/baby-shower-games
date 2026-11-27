@@ -35,6 +35,7 @@ const wss = new WebSocketServer({ server });
 let gameSettings = {
   timerMode: 'auto',  // 'auto' | 'manual'
   globalTimer: 60,    // seconds (used when timerMode === 'auto')
+  maxPrice: 500,      // upper bound for player guesses
 };
 
 let gameState = {
@@ -133,9 +134,10 @@ app.get('/admin/settings', (req, res) => {
 });
 
 app.post('/admin/settings', (req, res) => {
-  const { timerMode, globalTimer } = req.body;
+  const { timerMode, globalTimer, maxPrice } = req.body;
   if (timerMode) gameSettings.timerMode = timerMode;
   if (globalTimer !== undefined) gameSettings.globalTimer = Number(globalTimer);
+  if (maxPrice !== undefined) gameSettings.maxPrice = Number(maxPrice);
   broadcast(publicState());
   res.json({ ok: true, gameSettings });
 });

@@ -214,25 +214,42 @@ export default function GamePriceIsRight() {
               </div>
             )}
 
-            {lastResult?.guesses && (
-              <div className="bg-white rounded-2xl shadow p-5 mb-4 border border-sage-light/30">
-                <h3 className="text-xs font-semibold text-wood-mid uppercase tracking-wide mb-3">Item Scores</h3>
-                <div className="space-y-2">
-                  {lastResult.guesses.map((g, i) => (
-                    <div key={g.name} className={`flex items-center gap-3 p-2 rounded-xl ${g.name === playerName ? 'bg-skyblue-pale' : ''}`}>
-                      <span className="text-sage-mid text-xs w-4">{i + 1}</span>
-                      <span className="flex-1 font-semibold text-wood text-sm">{g.name}{g.name === playerName ? ' (you)' : ''}</span>
-                      <span className="text-sm text-sage-mid">${g.guess}</span>
-                      <span className={`font-bold text-sm w-14 text-right ${
-                        g.score === 100 ? 'text-sage' : g.score >= 60 ? 'text-wood-mid' : 'text-red-400'
-                      }`}>
-                        {g.score} pts
-                      </span>
-                    </div>
-                  ))}
+            {lastResult?.guesses && (() => {
+              // Sort participants by total score to assign trophies
+              const sortedByTotal = [...state.participants].sort((a, b) => b.totalScore - a.totalScore);
+              const totalRank = {};
+              sortedByTotal.forEach((p, i) => { totalRank[p.name] = i; });
+              const trophies = ['🥇', '🥈', '🥉'];
+              const totalScoreMap = Object.fromEntries(state.participants.map(p => [p.name, p.totalScore]));
+
+              return (
+                <div className="bg-white rounded-2xl shadow p-5 mb-4 border border-sage-light/30">
+                  <h3 className="text-xs font-semibold text-wood-mid uppercase tracking-wide mb-3">Round Scores</h3>
+                  <div className="space-y-2">
+                    {lastResult.guesses.map((g, i) => {
+                      const trophy = trophies[totalRank[g.name]];
+                      const totalPts = totalScoreMap[g.name] ?? 0;
+                      return (
+                        <div key={g.name} className={`flex items-center gap-2 p-2 rounded-xl ${g.name === playerName ? 'bg-skyblue-pale' : ''}`}>
+                          <span className="text-sage-mid text-xs w-4 shrink-0">{i + 1}</span>
+                          <span className="text-base w-5 shrink-0">{trophy || ''}</span>
+                          <span className="flex-1 font-semibold text-wood text-sm min-w-0 truncate">
+                            {g.name}{g.name === playerName ? ' (you)' : ''}
+                          </span>
+                          <span className="text-xs text-sage-mid shrink-0">${g.guess}</span>
+                          <div className="text-right shrink-0">
+                            <div className={`font-bold text-sm ${g.score === 100 ? 'text-sage' : g.score >= 60 ? 'text-wood-mid' : 'text-red-400'}`}>
+                              +{g.score} pts
+                            </div>
+                            <div className="text-xs text-sage-mid">{totalPts} total</div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
                 </div>
-              </div>
-            )}
+              );
+            })()}
 
             <p className="text-center text-sm text-sage-mid">Waiting for host to continue…</p>
           </div>

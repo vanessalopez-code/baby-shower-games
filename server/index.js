@@ -108,9 +108,7 @@ function calculateScores(itemId) {
 
   Object.values(gameState.participants).forEach(p => {
     const scores = Object.values(p.itemScores || {});
-    p.totalScore = scores.length > 0
-      ? Math.round(scores.reduce((a, b) => a + b, 0) / scores.length)
-      : 0;
+    p.totalScore = scores.reduce((a, b) => a + b, 0);
   });
 
   const result = {

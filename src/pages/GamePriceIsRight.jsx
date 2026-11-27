@@ -6,20 +6,27 @@ import Leaderboard from '../components/Leaderboard';
 export default function GamePriceIsRight() {
   const { state, playerName, submitGuess } = useGame();
   const navigate = useNavigate();
-  const [guess, setGuess] = useState(250);
-  const [submitted, setSubmitted] = useState(false);
   const [timeLeft, setTimeLeft] = useState(null);
   const timerRef = useRef(null);
-  const prevItemId = useRef(null);
 
+  const itemId = state?.currentItem?.id;
+
+  // Restore guess + submitted from sessionStorage so navigation doesn't reset them
+  const storageKey = itemId ? `bs_guess_${itemId}` : null;
+  const stored = storageKey ? (() => { try { return JSON.parse(sessionStorage.getItem(storageKey)); } catch { return null; } })() : null;
+
+  const [guess, setGuess] = useState(stored?.guess ?? 250);
+  const [submitted, setSubmitted] = useState(stored?.submitted ?? false);
+
+  // When a new item appears, clear stale storage and reset
+  const prevItemId = useRef(itemId);
   useEffect(() => {
-    const itemId = state?.currentItem?.id;
     if (itemId && itemId !== prevItemId.current) {
       prevItemId.current = itemId;
       setSubmitted(false);
       setGuess(250);
     }
-  }, [state?.currentItem?.id]);
+  }, [itemId]);
 
   useEffect(() => {
     if (state?.phase !== 'active' || !state?.currentItem?.endTime) {
@@ -40,6 +47,7 @@ export default function GamePriceIsRight() {
     if (submitted) return;
     submitGuess(guess);
     setSubmitted(true);
+    try { sessionStorage.setItem(storageKey, JSON.stringify({ guess, submitted: true })); } catch {}
   };
 
   const HomeBar = () => (

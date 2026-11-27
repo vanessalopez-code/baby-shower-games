@@ -32,6 +32,10 @@ if (existsSync(distPath)) {
 const server = createServer(app);
 const wss = new WebSocketServer({ server });
 
+// --- Item Library (global, persists across games) ---
+
+let itemLibrary = []; // [{ id, name, price, imageUrl, savedAt }]
+
 // --- Multi-game state ---
 
 const games = new Map(); // gameId -> gameData
@@ -308,6 +312,47 @@ app.post('/admin/games/:gameId/show-leaderboard', (req, res) => {
   game.gameState.phase = 'leaderboard';
   broadcastToGame(game.id, publicState(game));
   res.json({ ok: true });
+});
+
+// --- Item Library endpoints ---
+
+app.get('/admin/library', (req, res) => {
+  res.json(itemLibrary);
+});
+
+app.post('/admin/library', (req, res) => {
+  const { name, price, imageUrl } = req.body;
+  if (!name || price === undefined) return res.status(400).json({ error: 'name and price required' });
+  // Avoid exact duplicates by name
+  const exists = itemLibrary.some(i => i.name.toLowerCase() === name.toLowerCase());
+  if (exists) return res.status(409).json({ error: 'Item already in library' });
+  const item = { id: Date.now().toString(), name, price: Number(price), imageUrl: imageUrl || null, savedAt: Date.now() };
+  itemLibrary.push(item);
+  res.json({ ok: true, item });
+});
+
+app.delete('/admin/library/:id', (req, res) => {
+  itemLibrary = itemLibrary.filter(i => i.id !== req.params.id);
+  res.json({ ok: true });
+});
+
+// Add one or more library items to a game
+app.post('/admin/games/:gameId/items/from-library', (req, res) => {
+  const game = getGame(req, res); if (!game) return;
+  const { libraryItemIds } = req.body; // array of library item ids
+  if (!Array.isArray(libraryItemIds) || libraryItemIds.length === 0) {
+    return res.status(400).json({ error: 'libraryItemIds array required' });
+  }
+  const added = [];
+  for (const libId of libraryItemIds) {
+    const libItem = itemLibrary.find(i => i.id === libId);
+    if (!libItem) continue;
+    const item = { id: Date.now().toString() + Math.random().toString(36).slice(2), name: libItem.name, imageUrl: libItem.imageUrl, price: libItem.price };
+    game.adminItems.push(item);
+    added.push(item);
+  }
+  syncItems(game);
+  res.json({ ok: true, added });
 });
 
 app.post('/admin/games/:gameId/reset', (req, res) => {

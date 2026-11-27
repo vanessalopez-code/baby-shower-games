@@ -9,7 +9,7 @@ const FUTURE_GAMES = [
 ];
 
 export default function Home() {
-  const { playerName, joinGame, state } = useGame();
+  const { playerName, joinGame, availableGames } = useGame();
   const [nameInput, setNameInput] = useState(playerName || '');
   const [joined, setJoined] = useState(!!playerName);
   const navigate = useNavigate();
@@ -70,8 +70,15 @@ export default function Home() {
           <div>
             <div className="font-semibold text-wood text-base">Price Is Right</div>
             <div className="text-sm text-sage-mid">Guess the price of baby items!</div>
-            {state?.phase === 'active' && (
-              <span className="inline-block mt-1 bg-sage-pale text-sage text-xs font-semibold px-2 py-0.5 rounded-full border border-sage-light">🟢 Live now</span>
+            {availableGames.length > 0 && (
+              <div className="flex flex-wrap gap-1 mt-1">
+                {availableGames.some(g => g.phase === 'active') && (
+                  <span className="inline-block bg-sage-pale text-sage text-xs font-semibold px-2 py-0.5 rounded-full border border-sage-light">🟢 Live now</span>
+                )}
+                <span className="inline-block bg-wood-pale text-wood-mid text-xs font-semibold px-2 py-0.5 rounded-full border border-wood-light/40">
+                  {availableGames.length} game{availableGames.length !== 1 ? 's' : ''}
+                </span>
+              </div>
             )}
           </div>
         </button>

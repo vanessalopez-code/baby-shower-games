@@ -1,61 +1,67 @@
 import { useState, useEffect, useCallback } from 'react';
-import { useNavigate, Navigate } from 'react-router-dom';
+import { useNavigate, useParams, Navigate } from 'react-router-dom';
 import { useGame } from '../context/GameContext';
 
 export default function AdminPriceIsRight() {
-  const { api, API_URL, state } = useGame();
+  const { gameId } = useParams();
+  const { api, adminGet, API_URL, state } = useGame();
   const navigate = useNavigate();
 
   const [items, setItems] = useState([]);
+  const [gameInfo, setGameInfo] = useState(null);
   const [form, setForm] = useState({ name: '', price: '', imageUrl: '' });
   const [imagePreview, setImagePreview] = useState('');
   const [uploading, setUploading] = useState(false);
   const [msg, setMsg] = useState('');
-  const [timerMode, setTimerMode] = useState(() => localStorage.getItem('bs_timerMode') || 'auto');
-  const [globalSeconds, setGlobalSeconds] = useState(() => Number(localStorage.getItem('bs_globalSeconds')) || 60);
-  const [maxPrice, setMaxPrice] = useState(() => Number(localStorage.getItem('bs_maxPrice')) || 500);
+  const [timerMode, setTimerMode] = useState('auto');
+  const [globalSeconds, setGlobalSeconds] = useState(60);
+  const [maxPrice, setMaxPrice] = useState(500);
   const [settingsSaved, setSettingsSaved] = useState(false);
   const [dragIndex, setDragIndex] = useState(null);
   const [dragOverIndex, setDragOverIndex] = useState(null);
 
-  const fetchItems = useCallback(async () => {
-    const secret = sessionStorage.getItem('adminSecret') || '';
-    const res = await fetch(`${API_URL}/admin/items`, { headers: { 'x-admin-secret': secret } });
-    const data = await res.json();
-    setItems(data);
-  }, [API_URL]);
-
-  const fetchSettings = useCallback(async () => {
-    const secret = sessionStorage.getItem('adminSecret') || '';
-    const res = await fetch(`${API_URL}/admin/settings`, { headers: { 'x-admin-secret': secret } });
-    if (!res.ok) return;
-    const data = await res.json();
-    setTimerMode(data.timerMode || 'auto');
-    if (data.globalTimer) setGlobalSeconds(data.globalTimer);
-    if (data.maxPrice) setMaxPrice(data.maxPrice);
-  }, [API_URL]);
-
-  useEffect(() => {
-    fetchItems();
-    fetchSettings();
-  }, [fetchItems, fetchSettings]);
-
-  // Auth guard — must come after all hooks
   if (sessionStorage.getItem('adminAuthed') !== 'yes') {
     return <Navigate to="/admin" replace />;
   }
 
+  const fetchItems = useCallback(async () => {
+    const data = await adminGet(`/admin/games/${gameId}/items`);
+    setItems(Array.isArray(data) ? data : []);
+  }, [adminGet, gameId]);
+
+  const fetchSettings = useCallback(async () => {
+    const data = await adminGet(`/admin/games/${gameId}/settings`);
+    if (!data?.timerMode) return;
+    setTimerMode(data.timerMode || 'auto');
+    if (data.globalTimer) setGlobalSeconds(data.globalTimer);
+    if (data.maxPrice) setMaxPrice(data.maxPrice);
+  }, [adminGet, gameId]);
+
+  const fetchGameInfo = useCallback(async () => {
+    const data = await adminGet('/admin/games');
+    const game = Array.isArray(data) ? data.find(g => g.id === gameId) : null;
+    setGameInfo(game);
+  }, [adminGet, gameId]);
+
+  useEffect(() => {
+    fetchItems();
+    fetchSettings();
+    fetchGameInfo();
+  }, [fetchItems, fetchSettings, fetchGameInfo]);
+
+  // Use WebSocket state if it's for this game, else poll
+  const gameState = state?.gameId === gameId ? state : null;
+  const phase = gameState?.phase ?? gameInfo?.phase ?? 'lobby';
+  const currentItemIndex = gameState?.currentItemIndex ?? -1;
+  const participants = gameState?.participants ?? [];
+  const gameActive = phase && phase !== 'lobby';
+
   const saveSettings = async () => {
-    localStorage.setItem('bs_timerMode', timerMode);
-    localStorage.setItem('bs_globalSeconds', String(globalSeconds));
-    localStorage.setItem('bs_maxPrice', String(maxPrice));
-    try {
-      await api('/admin/settings', {
-        timerMode,
-        globalTimer: timerMode === 'auto' ? globalSeconds : null,
-        maxPrice,
-      });
-    } catch {}
+    await api(`/admin/games/${gameId}/settings`, {
+      timerMode,
+      globalTimer: timerMode === 'auto' ? globalSeconds : null,
+      maxPrice,
+    });
   };
 
   const handleImageFile = e => {
@@ -73,11 +79,8 @@ export default function AdminPriceIsRight() {
 
   const handleAddItem = async e => {
     e.preventDefault();
-    if (!form.name || !form.price) {
-      setMsg('Please fill in item name and price.');
-      return;
-    }
-    await api('/admin/items', {
+    if (!form.name || !form.price) { setMsg('Please fill in item name and price.'); return; }
+    await api(`/admin/games/${gameId}/items`, {
       name: form.name,
       price: parseFloat(form.price),
       imageUrl: form.imageUrl || null,
@@ -90,32 +93,32 @@ export default function AdminPriceIsRight() {
   };
 
   const handleDelete = async id => {
-    await fetch(`${API_URL}/admin/items/${id}`, { method: 'DELETE' });
+    const secret = sessionStorage.getItem('adminSecret') || '';
+    await fetch(`${API_URL}/admin/games/${gameId}/items/${id}`, {
+      method: 'DELETE',
+      headers: { 'x-admin-secret': secret },
+    });
     fetchItems();
   };
 
   const handleStartGame = async () => {
     await saveSettings();
-    const res = await api('/admin/start-round', {});
+    const res = await api(`/admin/games/${gameId}/start-round`, {});
     if (res.error) setMsg(res.error);
   };
 
   const handleNextRound = async () => {
-    const res = await api('/admin/start-round', {});
+    const res = await api(`/admin/games/${gameId}/start-round`, {});
     if (res.error) setMsg(res.error);
   };
 
   const handleCloseGuessing = async () => {
-    await api('/admin/end-round', {});
-  };
-
-  const handleShowLeaderboard = async () => {
-    await api('/admin/show-leaderboard', {});
+    await api(`/admin/games/${gameId}/end-round`, {});
   };
 
   const handleReset = async () => {
-    if (!confirm('Reset everything? This clears all items and scores.')) return;
-    await api('/admin/reset', {});
+    if (!confirm('Reset this game? This clears all items and scores.')) return;
+    await api(`/admin/games/${gameId}/reset`, {});
     fetchItems();
   };
 
@@ -133,51 +136,40 @@ export default function AdminPriceIsRight() {
   const handleDrop = async (e, dropIndex) => {
     e.preventDefault();
     if (dragIndex === null || dragIndex === dropIndex) {
-      setDragIndex(null);
-      setDragOverIndex(null);
-      return;
+      setDragIndex(null); setDragOverIndex(null); return;
     }
     const reordered = [...items];
     const [moved] = reordered.splice(dragIndex, 1);
     reordered.splice(dropIndex, 0, moved);
     setItems(reordered);
-    setDragIndex(null);
-    setDragOverIndex(null);
-    await fetch(`${API_URL}/admin/reorder-items`, {
+    setDragIndex(null); setDragOverIndex(null);
+    const secret = sessionStorage.getItem('adminSecret') || '';
+    await fetch(`${API_URL}/admin/games/${gameId}/reorder-items`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', 'x-admin-secret': secret },
       body: JSON.stringify({ ids: reordered.map(i => i.id) }),
     });
   };
 
-  const handleDragEnd = () => {
-    setDragIndex(null);
-    setDragOverIndex(null);
-  };
+  const handleDragEnd = () => { setDragIndex(null); setDragOverIndex(null); };
 
-  const phase = state?.phase;
-  const currentItemIndex = state?.currentItemIndex ?? -1;
-  const participants = state?.participants ?? [];
-  const gameActive = phase && phase !== 'lobby';
-
-  const logout = () => {
-    sessionStorage.removeItem('adminAuthed');
-    navigate('/');
-  };
+  const logout = () => { sessionStorage.removeItem('adminAuthed'); navigate('/'); };
 
   return (
     <div className="min-h-screen bg-canvas pb-16">
       {/* Top bar */}
       <div className="bg-white shadow-sm px-4 py-3 flex items-center justify-between sticky top-0 z-10 border-b border-sage-light/30">
         <div>
-          <div className="font-semibold text-wood text-base">Price Is Right</div>
-          <div className="text-xs text-sage-mid">Admin</div>
+          <div className="font-semibold text-wood text-base">
+            {gameInfo?.name || 'Price Is Right'}
+          </div>
+          <div className="text-xs text-sage-mid">Admin · Price Is Right</div>
         </div>
         <div className="flex gap-3 items-center">
           {participants.length > 0 && (
             <span className="text-xs text-sage-mid">{participants.length} joined</span>
           )}
-          <button onClick={() => navigate('/')} className="text-sm text-wood-light hover:text-wood-mid transition">Home</button>
+          <button onClick={() => navigate('/admin/price-is-right')} className="text-sm text-wood-light hover:text-wood-mid transition">← Games</button>
           <button onClick={logout} className="text-sm text-red-400 hover:text-red-500 transition">Logout</button>
         </div>
       </div>
@@ -198,15 +190,11 @@ export default function AdminPriceIsRight() {
                 <button
                   onClick={() => setTimerMode('auto')}
                   className={`flex-1 py-2.5 text-sm font-semibold transition ${timerMode === 'auto' ? 'bg-sage text-white' : 'bg-canvas text-sage-mid hover:bg-sage-pale'}`}
-                >
-                  Auto
-                </button>
+                >Auto</button>
                 <button
                   onClick={() => setTimerMode('manual')}
                   className={`flex-1 py-2.5 text-sm font-semibold transition border-l border-sage-light ${timerMode === 'manual' ? 'bg-sage text-white' : 'bg-canvas text-sage-mid hover:bg-sage-pale'}`}
-                >
-                  Manual
-                </button>
+                >Manual</button>
               </div>
               {timerMode === 'auto' ? (
                 <div className="mt-3 flex items-center gap-3">
@@ -220,7 +208,7 @@ export default function AdminPriceIsRight() {
                   <span className="text-xs text-sage-mid">closes automatically</span>
                 </div>
               ) : (
-                <p className="mt-3 text-sm text-sage-mid">You'll click <strong className="text-wood">Close Guessing</strong> manually for each item.</p>
+                <p className="mt-3 text-sm text-sage-mid">You'll click <strong className="text-wood">Close Guessing</strong> manually.</p>
               )}
             </div>
 
@@ -239,7 +227,7 @@ export default function AdminPriceIsRight() {
               </div>
             </div>
 
-            {/* Round controls (shown while game is running) */}
+            {/* Round controls */}
             {gameActive && (
               <div className="border-t border-sage-light/30 pt-4">
                 <div className="flex flex-wrap gap-2 mb-3">
@@ -282,9 +270,7 @@ export default function AdminPriceIsRight() {
                   setTimeout(() => setSettingsSaved(false), 2000);
                 }}
                 className="flex-1 bg-skyblue-pale hover:bg-skyblue-light/40 text-skyblue border border-skyblue-light font-semibold py-2.5 rounded-full text-sm transition"
-              >
-                Save Settings
-              </button>
+              >Save Settings</button>
               {settingsSaved && <span className="text-sm text-sage font-medium">✓ Saved</span>}
             </div>
 
@@ -298,6 +284,7 @@ export default function AdminPriceIsRight() {
                 {items.length === 0 ? 'Add items below to start' : '▶  Start Game'}
               </button>
             )}
+            {msg && <p className="text-sm text-red-400">{msg}</p>}
           </div>
         </div>
 
@@ -353,7 +340,7 @@ export default function AdminPriceIsRight() {
           </div>
         </div>
 
-        {/* ── ITEMS LIST with drag + drop ── */}
+        {/* ── ITEMS LIST ── */}
         {items.length > 0 && (
           <div className="bg-white rounded-2xl shadow border border-sage-light/30 overflow-hidden">
             <div className="px-5 py-3 border-b border-sage-light/20 flex items-center justify-between">
@@ -401,6 +388,7 @@ export default function AdminPriceIsRight() {
             </div>
           </div>
         )}
+
       </div>
     </div>
   );

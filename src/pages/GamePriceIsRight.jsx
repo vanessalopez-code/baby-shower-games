@@ -1,18 +1,26 @@
 import { useState, useEffect, useRef } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router-dom';
 import { useGame } from '../context/GameContext';
 import Leaderboard from '../components/Leaderboard';
 
 export default function GamePriceIsRight() {
-  const { state, playerName, submitGuess } = useGame();
+  const { gameId } = useParams();
+  const { state, playerName, joinGameRoom, submitGuess } = useGame();
   const navigate = useNavigate();
+
+  // Join this specific game room on mount
+  useEffect(() => {
+    if (playerName && gameId) {
+      joinGameRoom(gameId, playerName);
+    }
+  }, [gameId, playerName, joinGameRoom]);
   const [timeLeft, setTimeLeft] = useState(null);
   const timerRef = useRef(null);
 
-  const itemId = state?.currentItem?.id;
+  const itemId = gameState?.currentItem?.id;
 
   // Restore guess + submitted from sessionStorage so navigation doesn't reset them
-  const storageKey = itemId ? `bs_guess_${itemId}` : null;
+  const storageKey = itemId ? `bs_guess_${gameId}_${itemId}` : null;
   const stored = storageKey ? (() => { try { return JSON.parse(sessionStorage.getItem(storageKey)); } catch { return null; } })() : null;
 
   const [guess, setGuess] = useState(stored?.guess ?? 250);
@@ -29,19 +37,19 @@ export default function GamePriceIsRight() {
   }, [itemId]);
 
   useEffect(() => {
-    if (state?.phase !== 'active' || !state?.currentItem?.endTime) {
+    if (gameState?.phase !== 'active' || !gameState?.currentItem?.endTime) {
       setTimeLeft(null);
       clearInterval(timerRef.current);
       return;
     }
     const tick = () => {
-      const left = Math.max(0, Math.ceil((state.currentItem.endTime - Date.now()) / 1000));
+      const left = Math.max(0, Math.ceil((gameState.currentItem.endTime - Date.now()) / 1000));
       setTimeLeft(left);
     };
     tick();
     timerRef.current = setInterval(tick, 500);
     return () => clearInterval(timerRef.current);
-  }, [state?.phase, state?.currentItem?.endTime]);
+  }, [gameState?.phase, gameState?.currentItem?.endTime]);
 
   const handleSubmit = () => {
     if (submitted) return;
@@ -70,7 +78,10 @@ export default function GamePriceIsRight() {
     );
   }
 
-  const phase = state?.phase;
+  // Only use state from this specific game
+  const gameState = state?.gameId === gameId ? state : null;
+  const gameName = gameState?.gameName;
+  const phase = gameState?.phase;
 
   // Lobby / waiting
   if (!phase || phase === 'lobby') {
@@ -87,9 +98,9 @@ export default function GamePriceIsRight() {
   }
 
   // Active round
-  if (phase === 'active' && state.currentItem) {
-    const item = state.currentItem;
-    const maxPrice = state.gameSettings?.maxPrice || 500;
+  if (phase === 'active' && gameState.currentItem) {
+    const item = gameState.currentItem;
+    const maxPrice = gameState.gameSettings?.maxPrice || 500;
     const timerPct = timeLeft !== null ? (timeLeft / item.timer) * 100 : 100;
     const urgent = timeLeft !== null && timeLeft <= 10;
 
@@ -99,7 +110,7 @@ export default function GamePriceIsRight() {
         {/* Sage header with timer */}
         <div className="bg-sage px-4 pt-4 pb-6">
           <div className="flex justify-between text-xs text-white/80 font-medium mb-2">
-            <span>Item {state.currentItemIndex + 1} of {state.totalItems}</span>
+            <span>Item {gameState.currentItemIndex + 1} of {gameState.totalItems}</span>
             <span className={urgent ? 'text-yellow-200 font-bold' : ''}>{timeLeft !== null ? `${timeLeft}s` : ''}</span>
           </div>
           <div className="w-full bg-white/30 rounded-full h-1.5">
@@ -161,11 +172,11 @@ export default function GamePriceIsRight() {
                 <p className="text-base font-semibold text-wood">Guess locked in!</p>
                 <p className="text-3xl font-semibold text-sage mt-1">${guess}</p>
                 <p className="text-sm text-sage-mid mt-3">Waiting for the round to end…</p>
-                {state.participants.length > 0 && (
+                {gameState.participants.length > 0 && (
                   <div className="mt-4 text-left">
                     <p className="text-xs text-sage-mid font-semibold mb-2">Status</p>
                     <div className="flex flex-wrap gap-2">
-                      {state.participants.map(p => (
+                      {gameState.participants.map(p => (
                         <span key={p.name} className={`text-xs px-2 py-1 rounded-full font-medium border ${
                           p.hasGuessed
                             ? 'bg-sage-pale text-sage border-sage-light'
@@ -187,13 +198,13 @@ export default function GamePriceIsRight() {
 
   // Results
   if (phase === 'results') {
-    const lastResult = state.itemResults?.[state.itemResults.length - 1];
+    const lastResult = gameState.itemResults?.[gameState.itemResults.length - 1];
     return (
       <div className="min-h-screen bg-canvas flex flex-col">
         <HomeBar />
         <div className="bg-sage px-4 py-6 text-center">
           <h1 className="text-xl font-semibold text-white">Round Results</h1>
-          {lastResult && <p className="text-sage-light text-sm mt-1">{lastResult.itemName} · Item {state.currentItemIndex + 1} of {state.totalItems}</p>}
+          {lastResult && <p className="text-sage-light text-sm mt-1">{lastResult.itemName} · Item {gameState.currentItemIndex + 1} of {gameState.totalItems}</p>}
         </div>
         <div className="flex flex-col items-center px-4 pb-8 -mt-3">
           <div className="w-full max-w-md">
@@ -216,11 +227,11 @@ export default function GamePriceIsRight() {
 
             {lastResult?.guesses && (() => {
               // Sort participants by total score to assign trophies
-              const sortedByTotal = [...state.participants].sort((a, b) => b.totalScore - a.totalScore);
+              const sortedByTotal = [...gameState.participants].sort((a, b) => b.totalScore - a.totalScore);
               const totalRank = {};
               sortedByTotal.forEach((p, i) => { totalRank[p.name] = i; });
               const trophies = ['🥇', '🥈', '🥉'];
-              const totalScoreMap = Object.fromEntries(state.participants.map(p => [p.name, p.totalScore]));
+              const totalScoreMap = Object.fromEntries(gameState.participants.map(p => [p.name, p.totalScore]));
 
               return (
                 <div className="bg-white rounded-2xl shadow p-5 mb-4 border border-sage-light/30">
@@ -260,18 +271,18 @@ export default function GamePriceIsRight() {
 
   // Leaderboard (auto-shown after each round)
   if (phase === 'leaderboard') {
-    const lastResult = state.itemResults?.[state.itemResults.length - 1];
-    const sortedByTotal = [...state.participants].sort((a, b) => b.totalScore - a.totalScore);
+    const lastResult = gameState.itemResults?.[gameState.itemResults.length - 1];
+    const sortedByTotal = [...gameState.participants].sort((a, b) => b.totalScore - a.totalScore);
     const totalRank = Object.fromEntries(sortedByTotal.map((p, i) => [p.name, i]));
     const trophies = ['🥇', '🥈', '🥉'];
-    const totalScoreMap = Object.fromEntries(state.participants.map(p => [p.name, p.totalScore]));
+    const totalScoreMap = Object.fromEntries(gameState.participants.map(p => [p.name, p.totalScore]));
 
     return (
       <div className="min-h-screen bg-canvas flex flex-col">
         <HomeBar />
         <div className="bg-sage px-4 py-6 text-center">
           <h1 className="text-xl font-semibold text-white">Leaderboard</h1>
-          <p className="text-sage-light text-sm mt-1">After item {state.currentItemIndex + 1} of {state.totalItems}</p>
+          <p className="text-sage-light text-sm mt-1">After item {gameState.currentItemIndex + 1} of {gameState.totalItems}</p>
         </div>
         <div className="flex flex-col items-center px-4 py-6 -mt-3">
           <div className="w-full max-w-md space-y-4">
@@ -309,7 +320,7 @@ export default function GamePriceIsRight() {
             )}
 
             {/* Overall standings */}
-            <Leaderboard participants={state.participants} playerName={playerName} />
+            <Leaderboard participants={gameState.participants} playerName={playerName} />
             <p className="text-center text-sm text-sage-mid">Waiting for the next round…</p>
           </div>
         </div>

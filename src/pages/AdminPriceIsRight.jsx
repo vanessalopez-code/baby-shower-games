@@ -12,7 +12,7 @@ export default function AdminPriceIsRight() {
   const [uploading, setUploading] = useState(false);
   const [msg, setMsg] = useState('');
   const [timerMode, setTimerMode] = useState(() => localStorage.getItem('bs_timerMode') || 'auto');
-  const [globalMinutes, setGlobalMinutes] = useState(() => Number(localStorage.getItem('bs_globalMinutes')) || 1);
+  const [globalSeconds, setGlobalSeconds] = useState(() => Number(localStorage.getItem('bs_globalSeconds')) || 60);
   const [maxPrice, setMaxPrice] = useState(() => Number(localStorage.getItem('bs_maxPrice')) || 500);
   const [settingsSaved, setSettingsSaved] = useState(false);
   const [dragIndex, setDragIndex] = useState(null);
@@ -31,7 +31,7 @@ export default function AdminPriceIsRight() {
     if (!res.ok) return;
     const data = await res.json();
     setTimerMode(data.timerMode || 'auto');
-    setGlobalMinutes(data.globalTimer ? Math.max(1, Math.round(data.globalTimer / 60)) : 1);
+    if (data.globalTimer) setGlobalSeconds(data.globalTimer);
     if (data.maxPrice) setMaxPrice(data.maxPrice);
   }, [API_URL]);
 
@@ -47,12 +47,12 @@ export default function AdminPriceIsRight() {
 
   const saveSettings = async () => {
     localStorage.setItem('bs_timerMode', timerMode);
-    localStorage.setItem('bs_globalMinutes', String(globalMinutes));
+    localStorage.setItem('bs_globalSeconds', String(globalSeconds));
     localStorage.setItem('bs_maxPrice', String(maxPrice));
     try {
       await api('/admin/settings', {
         timerMode,
-        globalTimer: timerMode === 'auto' ? globalMinutes * 60 : null,
+        globalTimer: timerMode === 'auto' ? globalSeconds : null,
         maxPrice,
       });
     } catch {}
@@ -210,14 +210,14 @@ export default function AdminPriceIsRight() {
               </div>
               {timerMode === 'auto' ? (
                 <div className="mt-3 flex items-center gap-3">
-                  <label className="text-sm text-wood whitespace-nowrap">Minutes per item:</label>
+                  <label className="text-sm text-wood whitespace-nowrap">Seconds per item:</label>
                   <input
-                    type="number" min="1" max="10"
-                    value={globalMinutes}
-                    onChange={e => setGlobalMinutes(Math.max(1, Number(e.target.value)))}
+                    type="number" min="5" max="600"
+                    value={globalSeconds}
+                    onChange={e => setGlobalSeconds(Math.max(5, Number(e.target.value)))}
                     className="w-20 bg-sage-pale border border-sage-light rounded-xl px-3 py-2 text-wood text-center font-semibold focus:outline-none focus:ring-2 focus:ring-sage-light"
                   />
-                  <span className="text-xs text-sage-mid">({globalMinutes * 60}s — closes automatically)</span>
+                  <span className="text-xs text-sage-mid">closes automatically</span>
                 </div>
               ) : (
                 <p className="mt-3 text-sm text-sage-mid">You'll click <strong className="text-wood">Close Guessing</strong> manually for each item.</p>
